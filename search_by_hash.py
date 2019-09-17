@@ -9,21 +9,22 @@ from binary_matroid import BinaryMatroid2
 from configuration import Configuration
 
 
-ROWS = 4
-COLS = 10
+ROWS = 3
+COLS = 6
 PRINT_PROGRESS = True
 
 results = {}
 n = 0
 start = time.time()
 
-#Exhaustive:
-#for matrix_ in MatrixSpace(GF(2), ROWS, COLS):
+## Exhaustive:
+for matrix_ in MatrixSpace(GF(2), ROWS, COLS):
 
-#Random:
-while True:
-    matrix_ = matrix(GF(2),
-        [[py_random.randint(0, 1) for _ in range(COLS)] for _ in range(ROWS)])
+## Random:
+#while True:
+#    matrix_ = matrix(GF(2),
+#        [[py_random.randint(0, 1) for _ in range(COLS)] for _ in range(ROWS)])
+
     matroid = BinaryMatroid2(matrix=matrix_)
     n += 1
     if PRINT_PROGRESS:
@@ -43,6 +44,6 @@ while True:
     else:
         results[config] = (matroid, matrix_)
 
-print('\n{}'.format(len(results)), file=sys.stderr)
+print('\n{} different configurations'.format(len(results)), file=sys.stderr)
 end = time.time()
 print("Completed in {} seconds".format(round(end - start, 2)), file=sys.stderr)
