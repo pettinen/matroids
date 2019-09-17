@@ -140,8 +140,8 @@ class Configuration:
     # It would seem that the list of relations (without indices) determines
     # the configuration (but don't quote me on that)
     def __hash__(self):
-        relations = sorted(((x.size, x.index), (y.size, y.index))
-                           for x, y in relations)
+        relations = sorted(((x.size, x.rank), (y.size, y.rank))
+                           for x, y in self.relations)
         return hash(tuple(relations))
 
     def __len__(self):

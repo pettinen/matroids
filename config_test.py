@@ -66,4 +66,4 @@ assert not config1 != config2
 assert not config1 == config3
 
 end = time.time()
-print("Completed in {} seconds".format(end - start), file=sys.stderr)
+print("Completed in {} seconds".format(round(end - start, 2)), file=sys.stderr)
