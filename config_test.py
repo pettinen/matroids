@@ -6,17 +6,17 @@ import time
 from sage.all import *
 from sage.matrix.constructor import matrix
 
-from configuration import Configuration, Element
+from configuration import Configuration, Element, edge_type
 from binary_matroid import BinaryMatroid2
 
 
 start = time.time()
 
-SHOW = True
+SHOW = False
 
-def make_relations(elements, relations):
+def make_covers(elements, covers):
     elements = {elem.index: elem for elem in elements}
-    return [(elements[x], elements[y]) for x, y in relations]
+    return [(elements[x], elements[y]) for x, y in covers]
 
 elements1 = [
     Element(size=0, rank=0, index=0),
@@ -27,9 +27,9 @@ elements1 = [
     Element(5, 4, 5),
     Element(8, 5, 6),
 ]
-relations1 = make_relations(elements1,
+covers1 = make_covers(elements1,
     [(0, 1), (0, 2), (0, 4), (0, 5), (1, 3), (2, 3), (3, 6), (4, 6), (5, 6)])
-config1 = Configuration(elements1, relations1)
+config1 = Configuration(elements1, covers1)
 
 elements2 = [
     Element(size=0, rank=0, index=6),
@@ -40,9 +40,9 @@ elements2 = [
     Element(5, 4, 1),
     Element(8, 5, 0),
 ]
-relations2 = make_relations(elements2,
+covers2 = make_covers(elements2,
     [(6, 5), (6, 4), (6, 2), (6, 1), (5, 3), (4, 3), (3, 0), (2, 0), (1, 0)])
-config2 = Configuration(elements2, relations2)
+config2 = Configuration(elements2, covers2)
 
 matroid = BinaryMatroid2(matrix=matrix(GF(2), [
     [0, 0, 0, 0],
@@ -61,6 +61,10 @@ if SHOW:
     config3.show(label=True, title=config3)
 
 d = {config1: True}
+
+for edge in config3.covers:
+    print(edge)
+    print(edge_type(edge))
 
 assert config2 in d
 assert config3 not in d

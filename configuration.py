@@ -11,21 +11,21 @@ Element = namedtuple('Element', ['size', 'rank', 'index'])
 class Configuration:
     # `elements` is a list of type Element(size, rank, index),
     # where the indices are consecutive integers starting from zero.
-    # `relations` is a list of pairs (x, y), where x and y are
+    # `covers` is a list of pairs (x, y), where x and y are
     # integers corresponding to element indices.
-    def __init__(self, elements, relations, sanity_checks=False):
+    def __init__(self, elements, covers, sanity_checks=False):
         if sanity_checks:
             for elem in elements:
                 assert isinstance(elem, Element)
                 assert elem.size >= 0 and elem.rank >= 0
-                assert any(x == elem or y == elem for x, y in relations)
+                assert any(x == elem or y == elem for x, y in covers)
             for index in range(len(elements)):
                 assert any(elem.index == index for elem in elements)
-            for x, y in relations:
+            for x, y in covers:
                 assert x in elements and y in elements
         self.elements = elements
-        self.relations = relations
-        self.poset = Poset((self.elements, self.relations))
+        self.covers = covers
+        self.poset = Poset((self.elements, self.covers), cover_relations=True)
 
     def show(self, label=True, index=False, **kwargs):
         lattice = LatticePoset(self.poset)
@@ -64,7 +64,7 @@ class Configuration:
         )
 
     def __eq__(self, other):
-        if len(self.relations) != len(other.relations):
+        if len(self.covers) != len(other.covers):
             return False
 
         counts_self = Counter(
@@ -122,12 +122,12 @@ class Configuration:
                 Element(elem.size, elem.rank, permutation[elem.index])
                 for elem in self.elements
             ]
-            relations = [
+            covers = [
                 (find_element(permutation[x.index], elements),
                  find_element(permutation[y.index], elements))
-                for x, y in self.relations
+                for x, y in self.covers
             ]
-            poset = Poset((elements, relations))
+            poset = Poset((elements, covers), cover_relations=True)
             if poset == other_poset:
                 return True
         return False
@@ -135,13 +135,13 @@ class Configuration:
     def __ne__(self, other):
         return not self == other
 
-    # It seems to me that the list of relations (without indices) determines
-    # the configuration. Not sure, but at worst a bad hasher should
-    # just generate false positives.
+    # It seems to me that the list of cover relationss (without indices)
+    # determines the configuration. Not sure, but at worst a bad hasher
+    # should just generate false positives.
     def __hash__(self):
-        relations = sorted(((x.size, x.rank), (y.size, y.rank))
-                           for x, y in self.relations)
-        return hash(tuple(relations))
+        covers = sorted(((x.size, x.rank), (y.size, y.rank))
+                           for x, y in self.covers)
+        return hash(tuple(covers))
 
     def __len__(self):
         return len(self.elements)
@@ -150,8 +150,8 @@ class Configuration:
         return "Lattice configuration containing {} elements".format(len(self))
 
 
-def edge_type(relation):
-    x, y = relation
+def edge_type(cover_relation):
+    x, y = cover_relation
     if y.size > x.size:
         x, y = y, x
     rank_diff = x.rank - y.rank

@@ -72,7 +72,7 @@ class BinaryMatroid2(BinaryMatroid):
         labels = {cf: Element(len(cf), self.rank(cf), i)
                   for i, cf in enumerate(cyclic_flats)}
         poset = Poset((cyclic_flats, operator.le), element_labels=labels)
-        return Configuration(labels.values(), poset.relations())
+        return Configuration(labels.values(), poset.cover_relations())
 
     # Returns: Number of atoms for each rank.
     def atoms(self):
