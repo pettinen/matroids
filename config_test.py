@@ -60,6 +60,10 @@ if SHOW:
               + "equal to config1)")
     config3.show(label=True, title=config3)
 
+d = {config1: True}
+
+assert config2 in d
+assert config3 not in d
 assert config1 == config2
 assert config1 != config3
 assert not config1 != config2
