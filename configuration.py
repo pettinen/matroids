@@ -25,12 +25,10 @@ class Configuration:
                 assert x in elements and y in elements
         self.elements = elements
         self.relations = relations
-
-    def poset(self):
-        return Poset((self.elements, self.relations))
+        self.poset = Poset((self.elements, self.relations))
 
     def show(self, label=True, index=False, **kwargs):
-        lattice = LatticePoset(self.poset())
+        lattice = LatticePoset(self.poset)
         if index:
             labels_dict = {
                 elem: '{0}\n{1.size}, {1.rank}'.format(
@@ -118,7 +116,7 @@ class Configuration:
                     return element
             raise IndexError("no such index: {}".format(index))
 
-        other_poset = other.poset()
+        other_poset = other.poset
         for permutation in permutations:
             elements = [
                 Element(elem.size, elem.rank, permutation[elem.index])
@@ -137,8 +135,9 @@ class Configuration:
     def __ne__(self, other):
         return not self == other
 
-    # It would seem that the list of relations (without indices) determines
-    # the configuration (but don't quote me on that)
+    # It seems to me that the list of relations (without indices) determines
+    # the configuration. Not sure, but at worst a bad hasher should
+    # just generate false positives.
     def __hash__(self):
         relations = sorted(((x.size, x.rank), (y.size, y.rank))
                            for x, y in self.relations)
