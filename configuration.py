@@ -16,7 +16,7 @@ class Configuration(object):
     # where the indices are consecutive integers starting from zero.
     # `covers` is a list of pairs (x, y), where x and y are
     # integers corresponding to element indices.
-    def __init__(self, elements, covers, sanity_checks=True):
+    def __init__(self, elements, covers, sanity_checks=False):
         if sanity_checks:
             for elem in elements:
                 assert isinstance(elem, Element)
