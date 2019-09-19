@@ -69,7 +69,9 @@ for edge in config3.covers:
 assert config2 in d
 assert config3 not in d
 assert config1 == config2
+assert hash(config1) == hash(config2)
 assert config1 != config3
+assert hash(config1) != hash(config3)
 assert not config1 != config2
 assert not config1 == config3
 
