@@ -10,7 +10,7 @@ Element = namedtuple('Element', ['size', 'rank', 'index'])
 
 class Configuration(object):
     # Should improve speed and decrease memory usage
-    __slots__ = 'elements', 'covers', 'poset'
+    __slots__ = 'elements', 'covers'
 
     # `elements` is a list of type Element(size, rank, index),
     # where the indices are consecutive integers starting from zero.
@@ -31,10 +31,12 @@ class Configuration(object):
                 assert len(elements) == 1
         self.elements = elements
         self.covers = sorted(covers)
-        self.poset = Poset((self.elements, self.covers), cover_relations=True)
+
+    def poset(self):
+        return Poset((self.elements, self.covers), cover_relations=True)
 
     def show(self, label=True, index=False, **kwargs):
-        lattice = LatticePoset(self.poset)
+        lattice = LatticePoset(self.poset())
         if index:
             labels_dict = {
                 elem: '{0}\n{1.size}, {1.rank}'.format(
@@ -136,7 +138,7 @@ class Configuration(object):
                     return element
             raise IndexError("no such index: {}".format(index))
 
-        other_poset = other.poset
+        other_poset = other.poset()
         for permutation in permutations:
             elements = [
                 Element(elem.size, elem.rank, permutation[elem.index])
