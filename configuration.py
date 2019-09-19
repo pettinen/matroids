@@ -8,7 +8,7 @@ from sage.all import *
 
 Element = namedtuple('Element', ['size', 'rank', 'index'])
 
-class Configuration:
+class Configuration(object):
     # `elements` is a list of type Element(size, rank, index),
     # where the indices are consecutive integers starting from zero.
     # `covers` is a list of pairs (x, y), where x and y are
