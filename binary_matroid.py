@@ -92,21 +92,6 @@ class BinaryMatroid2(BinaryMatroid):
                     return d
         return None  # not sure what d is defined as when groundset has rank 0
 
-    # Returns: A matrix representing the matroid, if it is representable over
-    #          F_q (searched by brute force). None, if unrepresentable.
-    def representation(self, match_rank=False):
-        rank = self.rank()
-        id = matrix.identity(GF(2), rank)
-
-        for matrix_ in MatrixSpace(GF(2), rank, self.size() - rank):
-            if matrix_.rank() == rank or not match_rank:
-                augmented_matrix = id.augment(matrix_)
-                if self.is_isomorphic(Matroid(augmented_matrix)):
-                    print("Representable", file=sys.stderr)
-                    return augmented_matrix
-        else:
-            print("Not representable", file=sys.stderr)
-
     def __repr__(self):
         return "Binary ({}, {}, {})-matroid".format(
             len(self), self.full_rank(), self.minimum_distance())
