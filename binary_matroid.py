@@ -111,6 +111,17 @@ class BinaryMatroid2(BinaryMatroid):
         poset = Poset((cyclic_flats, operator.le), element_labels=labels)
         return Configuration(labels.values(), poset.cover_relations())
 
+    def contract(self, subset):
+        return self.__class__(
+            super(self.__class__, self).contract(subset).representation())
+
+    def delete(self, subset):
+        return self.__class__(
+            super(self.__class__, self).delete(subset).representation())
+
+    def restrict(self, subset):
+        return self.delete(self.groundset().difference(subset))
+
     # Returns: Number of atoms (in the lattice of cyclic flats) for each rank.
     def atoms(self):
         lattice = LatticePoset(self.cyclic_flats_poset())
