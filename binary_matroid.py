@@ -1,6 +1,7 @@
 from __future__ import print_function
 from collections import Counter
 from six.moves import range
+import itertools
 import operator
 import sys
 
@@ -20,20 +21,20 @@ class BinaryMatroid2(BinaryMatroid):
     # Returns: The list of cyclic flats of the matroid.
     def cyclic_flats(self, ranks=None):
         if ranks is None:
-            ranks = range(self.full_rank() + 1)
+            ranks = range(self.full_rank() + 2)
         else:
             try:              # Did we get a list of ranks?
                 iter(ranks)
             except TypeError: # Nope, assume we got a single integer
                 ranks = [ranks]
-        results = []
+        results = set()
         dual = self.dual()
         groundset = self.groundset()
         for rank in ranks:
             flats = self.flats(rank)
             for index, flat in enumerate(flats, start=1):
                 if dual.is_closed(groundset.difference(flat)):
-                    results.append(flat)
+                    results.add(flat)
         return results
 
     # Returns: Boolean indicating whether a subset is cyclic.
@@ -74,10 +75,22 @@ class BinaryMatroid2(BinaryMatroid):
         poset = Poset((cyclic_flats, operator.le), element_labels=labels)
         return Configuration(labels.values(), poset.cover_relations())
 
-    # Returns: Number of atoms for each rank.
+    # Returns: Number of atoms (in the lattice of cyclic flats) for each rank.
     def atoms(self):
         lattice = LatticePoset(self.cyclic_flats_poset())
         return Counter(self.rank(atom) for atom in lattice.atoms())
+
+    def parallel_elements(self):
+        return filter(lambda x: len(x) == 2, self.circuits())
+
+    def minimum_distance(self):
+        groundset = self.groundset()
+        full_rank = self.full_rank()
+        for d in range(len(groundset) + 1):
+            for subset in itertools.combinations(groundset, d):
+                if self.rank(groundset - set(subset)) < full_rank:
+                    return d
+        return None  # not sure what d is defined as when groundset has rank 0
 
     # Returns: A matrix representing the matroid, if it is representable over
     #          F_q (searched by brute force). None, if unrepresentable.
@@ -93,3 +106,7 @@ class BinaryMatroid2(BinaryMatroid):
                     return augmented_matrix
         else:
             print("Not representable", file=sys.stderr)
+
+    def __repr__(self):
+        return "Binary ({}, {}, {})-matroid".format(
+            len(self), self.full_rank(), self.minimum_distance())
