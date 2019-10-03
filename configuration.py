@@ -56,18 +56,20 @@ class Configuration(object):
                 heights[elem.rank] = [elem]
         if label:
             element_labels = labels_dict
-            vertex_size = 1000
         else:
             element_labels = {_label: '' for _label in labels_dict}
-            vertex_size = 20
 
+        if 'figsize' not in kwargs:
+            kwargs['figsize'] = 15
+        if 'vertex_color' not in kwargs:
+            kwargs['vertex_color'] = 'white'
+        if 'vertex_shape' not in kwargs:
+            kwargs['vertex_shape'] = 'o'
+        if 'vertex_size' not in kwargs:
+            kwargs['vertex_size'] = 1000 if label else 20
         lattice.show(
             element_labels=element_labels,
             heights=heights,
-            vertex_shape='o',
-            vertex_size=vertex_size,
-            figsize=[10, 10],
-            vertex_color='white',
             **kwargs
         )
 
