@@ -63,6 +63,15 @@ class Configuration:
             **kwargs
         )
 
+    # Removes loops.
+    def simplify(self):
+        bottom_elem = self.poset.bottom()
+        def modify(elem):
+            return Element(elem.size - bottom_elem.size, elem.rank, elem.index)
+        elements = [modify(elem) for elem in self.elements]
+        covers = [(modify(x), modify(y)) for x, y in self.covers]
+        return self.__class__(elements, covers)
+
     def __eq__(self, other):
         if len(self.covers) != len(other.covers):
             return False
@@ -150,6 +159,7 @@ class Configuration:
         return "Lattice configuration containing {} elements".format(len(self))
 
 
+# Returns: type of edge; (k, n) corresponding to a minor U(k, n) in the matroid
 def edge_type(cover_relation):
     x, y = cover_relation
     if y.size > x.size:
@@ -157,13 +167,20 @@ def edge_type(cover_relation):
     rank_diff = x.rank - y.rank
     nullary_diff = (x.size - x.rank) - (y.size - y.rank)
     
-    if rank_diff > 1:
-        if nullary_diff > 1:
-            raise ValueError("Can't have both rank and nullary difference > 1")
-        return 'rank_edge'
-    elif nullary_diff > 1:
-        return 'nullary_edge'
+    if rank_diff > 1 and nullary_diff == 1:
+        return 'rank_edge', (rank_diff, rank_diff + 1)
+    elif nullary_diff > 1 and rank_diff == 1:
+        return 'nullary_edge', (nullary_diff, nullary_diff + 1)
     elif rank_diff == 1 and nullary_diff == 1:
-        return 'elementary_edge'
+        return 'elementary_edge', (1, 2)
     else:
         raise ValueError("Impossible edge")
+
+def reconstruct(groundset_size, config):
+    loops_amount = config.poset.bottom().size
+    groundset_size -= loops_amount
+    config = config.simplify()
+    top_elem = config.poset.top()
+    isthmuses_amount = groundset_size - top_elem.size
+    groundset = set(range(groundset_size - isthmuses_amount))
+    print("{}x{} matrix", top_elem.rank, top_elem.size)
