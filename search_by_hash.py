@@ -6,7 +6,6 @@ import time
 from sage.all import *
 
 from binary_matroid import BinaryMatroid2
-from configuration import Configuration
 
 
 def search(rows, cols, strategy='exhaustive', print_progress=True):
