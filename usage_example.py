@@ -2,8 +2,6 @@ from __future__ import print_function
 from pprint import pprint
 
 from sage.all import *
-from sage.matrix.constructor import matrix
-
 from binary_matroid import BinaryMatroid2
 
 ## Usage: In Sage console: cd to this directory and load('usage_example.py')
