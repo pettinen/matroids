@@ -20,13 +20,8 @@ def search(rows, cols, strategy='exhaustive', print_progress=True):
             print('\r{}'.format(n), end='', file=sys.stderr)
 
         matroid = BinaryMatroid2(matrix=matrix_)
-
-        # only matroids without loops or isthmuses
-        if matroid.loops() or matroid.coloops():
+        if not matroid.is_simple():
             return
-        # only matroids without parallel elements
-        #if matroid.parallel_elements():
-        #    return
 
         config = matroid.cf_lattice_config()
         if config in results:
@@ -63,8 +58,8 @@ def search(rows, cols, strategy='exhaustive', print_progress=True):
         file=sys.stderr)
     print("Completed in {} seconds".format(round(end - start, 2)),
         file=sys.stderr)
-    for i, config in enumerate(results):
-        config.show(title="Config #{}\n{}".format(i + 1, results[config][1]))
+    for config in results:
+        config.show(title="{}\n{}".format(*results[config]))
 
 
 if __name__ == '__main__':
