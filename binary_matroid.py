@@ -50,7 +50,7 @@ class BinaryMatroid2(BinaryMatroid):
     # Returns: Flats of rank r; or all flats, if r is None.
     def flats(self, r=None):
         if r is not None:
-            return super(BinaryMatroid2, self).flats(r)
+            return super(self.__class__, self).flats(r)
 
         flats = []
         for rank in range(self.full_rank() + 1):
@@ -67,6 +67,42 @@ class BinaryMatroid2(BinaryMatroid):
     def cf_lattice(self):
         cyclic_flats = self.cyclic_flats()
         return LatticePoset(Poset((cyclic_flats, operator.le)))
+
+    def show_cf_lattice(self, label=True, **kwargs):
+        cyclic_flats = self.cyclic_flats()
+        lattice = LatticePoset(Poset((cyclic_flats, operator.le)))
+
+        def pretty_label(i):
+            if i >= 10:
+                return ',{}'.format(i)
+            return str(i)
+        labels_dict = {
+            cf: ''.join(map(pretty_label, sorted(cf))) for cf in cyclic_flats
+        }
+        heights = {}
+        for cf in cyclic_flats:
+            try:
+                heights[self.rank(cf)].append(cf)
+            except KeyError:
+                heights[self.rank(cf)] = [cf]
+        if label:
+            element_labels = labels_dict
+        else:
+            element_labels = {_label: '' for _label in labels_dict}
+
+        if 'figsize' not in kwargs:
+            kwargs['figsize'] = 20 if label else 50
+        if 'vertex_color' not in kwargs:
+            kwargs['vertex_color'] = 'white'
+        if 'vertex_shape' not in kwargs:
+            kwargs['vertex_shape'] = 0
+        if 'vertex_size' not in kwargs:
+            kwargs['vertex_size'] = 500 if label else 10
+        lattice.show(
+            element_labels=element_labels,
+            heights=heights,
+            **kwargs
+        )
 
     def cf_lattice_config(self):
         cyclic_flats = self.cyclic_flats()
