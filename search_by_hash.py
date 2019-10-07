@@ -20,7 +20,8 @@ def search(rows, cols, strategy='exhaustive', print_progress=True):
             print('\r{}'.format(n), end='', file=sys.stderr)
 
         matroid = BinaryMatroid2(matrix=matrix_)
-        if not matroid.is_simple():
+        # Only find simple matroids with no isthmuses
+        if not matroid.is_simple() or matroid.coloops():
             return
 
         config = matroid.cf_lattice_config()
@@ -63,8 +64,8 @@ def search(rows, cols, strategy='exhaustive', print_progress=True):
 
 
 if __name__ == '__main__':
-    ROWS = 4
-    COLS = 4
+    ROWS = 5
+    COLS = 5
     STRATEGY = 'exhaustive'
     PRINT_PROGRESS = True
     search(ROWS, COLS, STRATEGY, PRINT_PROGRESS)

@@ -77,7 +77,8 @@ class BinaryMatroid2(BinaryMatroid):
                 return ',{}'.format(i)
             return str(i)
         labels_dict = {
-            cf: ''.join(map(pretty_label, sorted(cf))) for cf in cyclic_flats
+            cf: ''.join(map(pretty_label, sorted(cf))) or '{ }'
+            for cf in cyclic_flats
         }
         heights = {}
         for cf in cyclic_flats:
@@ -128,7 +129,7 @@ class BinaryMatroid2(BinaryMatroid):
         return Counter(self.rank(atom) for atom in lattice.atoms())
 
     def parallel_elements(self):
-        return filter(lambda x: len(x) == 2, self.circuits())
+        return frozenset(filter(lambda x: len(x) == 2, self.circuits()))
 
     def minimum_distance(self):
         groundset = self.groundset()
@@ -137,7 +138,7 @@ class BinaryMatroid2(BinaryMatroid):
             for subset in itertools.combinations(groundset, d):
                 if self.rank(groundset - set(subset)) < full_rank:
                     return d
-        return None  # not sure what d is defined as when groundset has rank 0
+        return None  # not sure how/if d is defined when groundset has rank 0
 
     def __repr__(self):
         return "Binary ({}, {}, {})-matroid".format(
