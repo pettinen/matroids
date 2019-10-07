@@ -200,6 +200,7 @@ def edge_type(cover_relation):
     else:
         raise ValueError("Impossible edge")
 
+
 def reconstruct(groundset_size, config):
     loops_amount = config.poset.bottom().size
     groundset_size -= loops_amount
@@ -207,4 +208,99 @@ def reconstruct(groundset_size, config):
     top_elem = config.poset.top()
     isthmuses_amount = groundset_size - top_elem.size
     groundset = set(range(groundset_size - isthmuses_amount))
-    print("{}x{} matrix", top_elem.rank, top_elem.size)
+    print("Looking for a ({}, {})-matroid", top_elem.size, top_elem.rank)
+
+
+def reconstruct_height3(config, sanity_checks=True):
+    # Assumes simple matroid with no isthmuses, with all atoms the same size.
+    # Assumes | z_i & z_j | = 1 for distinct atoms z_i, z_j.
+    # Works for e.g. the unique (6,3,3)-matroid and the simplex (7,3,4)-matroid.
+    poset = config.poset()
+    if sanity_checks:
+        assert poset.height() == 3
+        assert poset.has_top() and poset.has_bottom()
+
+    groundset = set(range(poset.top().size))
+    atoms = poset.upper_covers(poset.bottom())
+
+    # Assign {0, 1, ..., size-1} to be the first atom
+    cyclic_flats = {atoms[0]: set(range(atoms[0].size))}
+    # Keep track of the amount of times each element is used
+    uses = {i: 0 for i in groundset}
+    for i in cyclic_flats[atoms[0]]:
+        uses[i] += 1
+
+    for atom in atoms[1:]:
+        current = set()
+        for found_cf in cyclic_flats.values():
+            candidates = sorted(found_cf - current,
+                                key=lambda i: uses[i])
+            #candidates = found_cf - current
+            for candidate in candidates:
+                test_set = copy(current)
+                test_set.add(candidate)
+                if all(len(test_set & x) <= 1 for x in cyclic_flats.values()):
+                    current.add(candidate)
+                    uses[candidate] += 1
+                    break
+
+        # Add unused elements to fill the current set
+        for i in uses:
+            if len(current) == atom.size:
+                break
+            if uses[i] == 0:
+                current.add(i)
+                uses[i] += 1
+        cyclic_flats[atom] = current
+
+    if sanity_checks:
+        for atom, x in cyclic_flats.items():
+            assert len(x) == atom.size
+            for y in cyclic_flats.values():
+                assert x == y or len(x & y) == 1
+
+    return cyclic_flats
+
+
+def reconstruct_height3_general(config, sanity_checks=True):
+    # WORK IN PROGRESS
+    # Assume simple (n, k, d)-matroid with no isthmuses and k >= 3.
+    # Assume atoms have rank k-1. Then |Z1 & Z2| <= k/2 for atoms Z1, Z2.
+    poset = config.poset()
+    if sanity_checks:
+        assert poset.height() == 3
+        assert poset.has_top() and poset.has_bottom()
+        assert poset.top().rank >= 3
+
+    n = poset.top().size
+    k = poset.top().rank
+    groundset = set(range(n))
+    atoms = poset.upper_covers(poset.bottom())
+    intersect_max = k / 2
+
+    cyclic_flats = {}
+    # Keep track of the amount of times each element is used
+    uses = {i: 0 for i in groundset}
+
+    for atom in atoms:
+        current = set()
+        for found_cf in cyclic_flats.values():
+            candidates = sorted(found_cf - current,
+                                key=lambda i: uses[i])
+            for candidate in candidates:
+                test_set = copy(current)
+                test_set.add(candidate)
+                if all(len(test_set & x) <= intersect_max
+                       for x in cyclic_flats.values()):
+                    current.add(candidate)
+                    uses[candidate] += 1
+
+        # Add unused elements to fill the current set
+        for i in uses:
+            if len(current) == atom.size:
+                break
+            if uses[i] == 0:
+                current.add(i)
+                uses[i] += 1
+        cyclic_flats[atom] = current
+    return cyclic_flats
