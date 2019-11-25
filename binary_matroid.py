@@ -8,12 +8,17 @@ import sys
 from sage.all import *
 from sage.matroids.advanced import BinaryMatroid
 
-from configuration import Configuration, Element
-
 
 # Various functions moved into a class.
 # Most methods authored by Matthias Grezet.
 class BinaryMatroid2(BinaryMatroid):
+    @classmethod
+    def from_matroid(cls, matroid, **kwargs):
+        try:
+            return cls(matroid.binary_matroid().representation(), **kwargs)
+        except AttributeError:
+            raise ValueError("not representable as binary matroid")
+
     # Arguments:
     #    ranks: A rank or a list of ranks to find cyclic flats of.
     #           Optional, defaults to checking all ranks.
@@ -106,6 +111,7 @@ class BinaryMatroid2(BinaryMatroid):
         )
 
     def cf_lattice_config(self):
+        from configuration import Configuration, Element
         cyclic_flats = self.cyclic_flats()
         labels = {cf: Element(len(cf), self.rank(cf), i)
                   for i, cf in enumerate(cyclic_flats)}
@@ -143,3 +149,7 @@ class BinaryMatroid2(BinaryMatroid):
     def __repr__(self):
         return "Binary ({}, {}, {})-matroid".format(
             len(self), self.full_rank(), self.minimum_distance())
+
+
+def Uniform(r, n):
+    return BinaryMatroid2.from_matroid(matroids.Uniform(r, n))
