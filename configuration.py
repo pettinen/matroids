@@ -1,16 +1,20 @@
+from __future__ import print_function
 from collections import Counter, namedtuple
+from copy import deepcopy
 from six.moves import range
 import itertools
 import string
 
 from sage.all import *
 
+from binary_matroid import BinaryMatroid2, Uniform
+
 
 Element = namedtuple('Element', ['size', 'rank', 'index'])
 
 class Configuration(object):
     # Should improve speed and decrease memory usage
-    __slots__ = 'elements', 'covers'
+    __slots__ = 'elements', 'covers', '_poset', '_lattice'
 
     # `elements` is a list of type Element(size, rank, index),
     # where the indices are consecutive integers starting from zero.
@@ -31,16 +35,61 @@ class Configuration(object):
                 assert len(elements) == 1
         self.elements = elements
         self.covers = sorted(covers)
+        self._poset = self._lattice = None
 
     def poset(self):
-        return Poset((self.elements, self.covers), cover_relations=True)
+        if self._poset is None:
+            self._poset = Poset((self.elements, self.covers),
+                cover_relations=True)
+        return self._poset
+
+    def lattice(self):
+        if self._lattice is None:
+            self._lattice = LatticePoset(self.poset())
+        return self._lattice
+
+    def atoms(self):
+        return self.lattice().atoms()
+
+    def coatoms(self):
+        return self.lattice().coatoms()
+
+    def height(self):
+        return self.poset().height()
+
+    def top(self):
+        return self.poset().top()
+
+    def bottom(self):
+        return self.poset().bottom()
+
+    def upper_covers(self, elem):
+        return self.poset().upper_covers(elem)
+
+    def lower_covers(self, elem):
+        return self.poset().lower_covers(elem)
+
+    def restrict(self, top_elem):
+        new_elements = filter(
+            lambda elem: self.poset().is_lequal(elem, top_elem),
+            self.elements
+        )
+        new_covers = filter(
+            lambda rel: rel[0] in new_elements and rel[1] in new_elements,
+            self.covers
+        )
+        return Configuration(new_elements, new_covers)
 
     def show(self, label=True, index=False, **kwargs):
         lattice = LatticePoset(self.poset())
         if index:
+            if len(self.elements) > 26:
+                indices = range(1, len(self.elements) + 1)
+            else:
+                indices = string.ascii_uppercase
             labels_dict = {
                 elem: '{0}\n{1.size}, {1.rank}'.format(
-                    string.ascii_uppercase[elem.index], elem)
+                    indices[elem.index], elem)
                 for elem in self.elements
             }
         else:
@@ -75,7 +124,7 @@ class Configuration(object):
 
     # Removes loops.
     def simplify(self):
-        bottom_elem = self.poset.bottom()
+        bottom_elem = self.bottom()
         def modify(elem):
             return Element(elem.size - bottom_elem.size, elem.rank, elem.index)
         elements = [modify(elem) for elem in self.elements]
@@ -201,16 +250,6 @@ def edge_type(cover_relation):
         raise ValueError("Impossible edge")
 
 
-def reconstruct(groundset_size, config):
-    loops_amount = config.poset.bottom().size
-    groundset_size -= loops_amount
-    config = config.simplify()
-    top_elem = config.poset.top()
-    isthmuses_amount = groundset_size - top_elem.size
-    groundset = set(range(groundset_size - isthmuses_amount))
-    print("Looking for a ({}, {})-matroid", top_elem.size, top_elem.rank)
-
-
 def reconstruct_height3(config, sanity_checks=True):
     # Assumes simple matroid with no isthmuses, with all atoms the same size.
     # Assumes | z_i & z_j | = 1 for distinct atoms z_i, z_j.
@@ -261,46 +300,164 @@ def reconstruct_height3(config, sanity_checks=True):
 
     return cyclic_flats
 
+def cyclic_flats_height3(config, groundset=None):
+    # Assume config is of a simple matroid with no isthmuses
 
-def reconstruct_height3_general(config, sanity_checks=True):
-    # WORK IN PROGRESS
-    # Assume simple (n, k, d)-matroid with no isthmuses and k >= 3.
-    # Assume atoms have rank k-1. Then |Z1 & Z2| <= k/2 for atoms Z1, Z2.
-    poset = config.poset()
-    if sanity_checks:
-        assert poset.height() == 3
-        assert poset.has_top() and poset.has_bottom()
-        assert poset.top().rank >= 3
+    # Replace default groundset with the given one
+    def change_groundset(cyclic_flats):
+        if groundset is None:
+            return cyclic_flats
+        permutation = dict(enumerate(sorted(groundset)))
+        new_cfs = set()
+        for cf in cyclic_flats:
+            new_cfs.add(frozenset(permutation[elem] for elem in cf))
+        return new_cfs
 
-    n = poset.top().size
-    k = poset.top().rank
-    groundset = set(range(n))
-    atoms = poset.upper_covers(poset.bottom())
-    intersect_max = k / 2
+    matroid6_3_3 = BinaryMatroid2(matrix(GF(2), [
+        [1, 0, 0, 1, 1, 1],
+        [0, 1, 0, 1, 0, 1],
+        [0, 0, 1, 0, 1, 1],
+    ]))
+    if config == matroid6_3_3.cf_lattice_config():
+        return change_groundset(matroid6_3_3.cyclic_flats())
 
-    cyclic_flats = {}
-    # Keep track of the amount of times each element is used
-    uses = {i: 0 for i in groundset}
+    matroid7_3_4 = BinaryMatroid2(matrix(GF(2), [
+        [1, 0, 0, 1, 1, 0, 1],
+        [0, 1, 0, 1, 0, 1, 1],
+        [0, 0, 1, 0, 1, 1, 1],
+    ]))
+    if config == matroid7_3_4.cf_lattice_config():
+        return change_groundset(matroid7_3_4.cyclic_flats())
+    if config == matroid7_3_4.dual().cf_lattice_config():
+        return change_groundset(matroid7_3_4.dual().cyclic_flats())
 
-    for atom in atoms:
-        current = set()
-        for found_cf in cyclic_flats.values():
-            candidates = sorted(found_cf - current,
-                                key=lambda i: uses[i])
-            for candidate in candidates:
-                test_set = copy(current)
-                test_set.add(candidate)
-                if all(len(test_set & x) <= intersect_max
-                       for x in cyclic_flats.values()):
-                    current.add(candidate)
-                    uses[candidate] += 1
+    matroid8_4_4 = BinaryMatroid2(matrix(GF(2), [
+        [1, 0, 0, 0, 1, 0, 1, 1],
+        [0, 1, 0, 0, 1, 1, 0, 1],
+        [0, 0, 1, 0, 1, 1, 1, 0],
+        [0, 0, 0, 1, 0, 1, 1, 1],
+    ]))
+    if config == matroid8_4_4.cf_lattice_config():
+        return change_groundset(matroid8_4_4.cyclic_flats())
 
-        # Add unused elements to fill the current set
-        for i in uses:
-            if len(current) == atom.size:
-                break
-            if uses[i] == 0:
-                current.add(i)
-                uses[i] += 1
-        cyclic_flats[atom] = current
+    # the matroid is none of the above, so it is one with nullity 2.
+    # assume those are also known
+    matroid5_3_2 = BinaryMatroid2(matrix(GF(2), [
+        [1, 0, 0, 1, 0],
+        [0, 1, 0, 0, 1],
+        [0, 0, 1, 1, 1],
+    ]))
+    if config == matroid5_3_2.cf_lattice_config():
+        return change_groundset(matroid5_3_2.cyclic_flats())
+
+    # uniform matroids
+    if len(config) == 2:
+        poset = config.poset()
+        assert poset.bottom().size == 0 and poset.bottom().rank == 0
+        matroid = Uniform(poset.top().rank, poset.top().size)
+        return change_groundset(matroid.cyclic_flats())
+
+
+# Attempt to reconstruct the cyclic flats for a height-4 config.
+# Assume matroids with height-3 lattices are known.
+def cyclic_flats_height4(groundset_size, config):
+    loops_amount = config.bottom().size
+    groundset_size -= loops_amount
+    config = config.simplify()
+    top_elem = config.top()
+    isthmuses_amount = groundset_size - top_elem.size
+    groundset = set(range(groundset_size - isthmuses_amount))
+    print("Looking for a ({}, {})-matroid".format(top_elem.size, top_elem.rank))
+    assert top_elem.size == len(groundset)
+    assert config.bottom().size == 0 and config.bottom().rank == 0
+
+    cyclic_flats = {elem: set() for elem in config.elements}
+    cyclic_flats[config.top()].update(groundset)
+    excluded = {elem: set() for elem in config.elements}
+
+    def is_filled(elem):
+        return elem.size == len(cyclic_flats[elem])
+
+    def done():
+        return all(is_filled(elem) for elem in config.elements)
+
+    def show_progress(cyclic_flats):
+        lattice = LatticePoset(config.poset())
+        labels = {
+            elem: '({0.size}, {0.rank})\n{1}'.format(
+                elem, ', '.join(str(x) for x in cyclic_flats[elem]))
+            for elem in config.elements
+        }
+        heights = {}
+        for elem in config.elements:
+            try:
+                heights[elem.rank].append(elem)
+            except KeyError:
+                heights[elem.rank] = [elem]
+
+        lattice.show(
+            element_labels=labels,
+            heights=heights,
+            figsize=18,
+            vertex_color='white',
+            vertex_shape='o',
+            vertex_size=12000,
+        )
+
+    atoms = config.atoms()
+    coatoms = config.coatoms()
+
+    # Start by filling a coatom of maximal size
+    largest_coatom = max(coatoms, key=lambda coatom: coatom.size)
+    cyclic_flats[largest_coatom] = set(range(largest_coatom.size))
+    first_cyclic_flats = cyclic_flats_height3(config.restrict(largest_coatom))
+    assert (len(first_cyclic_flats)
+            == len(config.lower_covers(largest_coatom)) + 2)
+    for atom in config.lower_covers(largest_coatom):
+        cf = filter(lambda x: len(x) == atom.size, first_cyclic_flats)[0]
+        first_cyclic_flats.remove(cf)
+        cyclic_flats[atom].update(cf)
+        for coatom in config.upper_covers(atom):
+            cyclic_flats[coatom].update(cf)
+
+    iterations = 0
+    while not done():
+        previous = deepcopy(cyclic_flats)
+
+        # If an element is in every coatom covering an atom,
+        # it must also be in the atom
+        for atom in atoms:
+            for elem in groundset:
+                if all(elem in coatom for coatom in config.upper_covers(atom)):
+                    try:
+                        cyclic_flats[atom].add(elem)
+                    except KeyError:
+                        cyclic_flats[atom] = {elem}
+
+        for coatom in coatoms:
+            for atom in config.lower_covers(coatom):
+                for elem in cyclic_flats[atom]:
+                    try:
+                        cyclic_flats[coatom].add(elem)
+                    except KeyError:
+                        cyclic_flats[coatom] = {elem}
+
+        iterations += 1
+        if cyclic_flats == previous:
+            print("Nothing changed on iteration #{}; terminating".format(
+                iterations))
+            show_progress(cyclic_flats)
+            return
     return cyclic_flats
+
+
+matrix11_4_5 = matrix(GF(2), [
+    [1, 0, 0, 0, 1, 0, 0, 1, 1, 1, 1],
+    [0, 1, 0, 0, 1, 1, 1, 0, 0, 1, 1],
+    [0, 0, 1, 0, 1, 0, 1, 1, 0, 1, 0],
+    [0, 0, 0, 1, 0, 1, 1, 1, 1, 1, 1],
+])
+matroid11_4_5 = BinaryMatroid2(matrix11_4_5)
+h4 = matroid11_4_5.restrict({0,2,4,5,6,7,8,9,10})
+config = h4.cf_lattice_config()
+print(cyclic_flats_height4(len(h4), h4.cf_lattice_config()))
