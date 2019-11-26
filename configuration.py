@@ -1,6 +1,7 @@
 from __future__ import print_function
 from collections import Counter, namedtuple
 from copy import deepcopy
+from pprint import pprint
 from six.moves import range
 import itertools
 import string
@@ -375,17 +376,32 @@ def cyclic_flats_height4(groundset_size, config):
     cyclic_flats[config.top()].update(groundset)
     excluded = {elem: set() for elem in config.elements}
 
-    def is_filled(elem):
-        return elem.size == len(cyclic_flats[elem])
+    def is_filled(elem, cyclic_flats):
+        return len(cyclic_flats[elem]) >= elem.size
 
-    def done():
-        return all(is_filled(elem) for elem in config.elements)
+    def done(cyclic_flats):
+        return all(is_filled(elem, cyclic_flats) for elem in config.elements)
 
-    def show_progress(cyclic_flats):
+    def intersect(cyclic_flats, elems):
+        try:
+            result = cyclic_flats[elems[0]]
+        except IndexError:
+            return set()
+        for elem in elems[1:]:
+            result &= cyclic_flats[elem]
+        return result
+
+    def show_progress(cyclic_flats, show_excluded=True):
         lattice = LatticePoset(config.poset())
+        if show_excluded:
+            label_str = '({0.size}, {0.rank})\n{1}\n{2}'
+        else:
+            label_str = '({0.size}, {0.rank})\n{1}'
         labels = {
-            elem: '({0.size}, {0.rank})\n{1}'.format(
-                elem, ', '.join(str(x) for x in cyclic_flats[elem]))
+            elem: label_str.format(
+                elem, 
+                ', '.join(str(x) for x in cyclic_flats[elem]) or '{ }',
+                ', '.join(str(x) for x in excluded[elem]) or '{ }')
             for elem in config.elements
         }
         heights = {}
@@ -401,7 +417,7 @@ def cyclic_flats_height4(groundset_size, config):
             figsize=18,
             vertex_color='white',
             vertex_shape='o',
-            vertex_size=12000,
+            vertex_size=8000,
         )
 
     atoms = config.atoms()
@@ -411,43 +427,66 @@ def cyclic_flats_height4(groundset_size, config):
     largest_coatom = max(coatoms, key=lambda coatom: coatom.size)
     cyclic_flats[largest_coatom] = set(range(largest_coatom.size))
     first_cyclic_flats = cyclic_flats_height3(config.restrict(largest_coatom))
-    assert (len(first_cyclic_flats)
-            == len(config.lower_covers(largest_coatom)) + 2)
+
     for atom in config.lower_covers(largest_coatom):
         cf = filter(lambda x: len(x) == atom.size, first_cyclic_flats)[0]
         first_cyclic_flats.remove(cf)
         cyclic_flats[atom].update(cf)
         for coatom in config.upper_covers(atom):
             cyclic_flats[coatom].update(cf)
+    used = cyclic_flats[largest_coatom].copy()
 
     iterations = 0
-    while not done():
-        previous = deepcopy(cyclic_flats)
+    while not done(cyclic_flats):
+        previous_cyclic_flats = deepcopy(cyclic_flats)
+        previous_excluded = deepcopy(excluded)
 
         # If an element is in every coatom covering an atom,
         # it must also be in the atom
         for atom in atoms:
-            for elem in groundset:
-                if all(elem in coatom for coatom in config.upper_covers(atom)):
-                    try:
-                        cyclic_flats[atom].add(elem)
-                    except KeyError:
-                        cyclic_flats[atom] = {elem}
+            if len(groundset - excluded[atom]) == atom.size:
+                cyclic_flats[atom].update(groundset - excluded[atom])
+            for x in groundset - excluded[atom]:
+                if all(x in cyclic_flats[coatom]
+                        for coatom in config.upper_covers(atom)):
+                    cyclic_flats[atom].add(x)
+
+            if is_filled(atom, cyclic_flats):
+                excluded[atom].update(groundset - cyclic_flats[atom])
+                for coatom in config.upper_covers(atom):
+                    other_covers = config.upper_covers(atom)
+                    other_covers.remove(coatom)
+                    for x in groundset - cyclic_flats[coatom]:
+                        candidate = cyclic_flats[coatom].copy()
+                        candidate.add(x)
+                        intersection = candidate & intersect(cyclic_flats, other_covers)
+                        if cyclic_flats[atom] < intersection:
+                            excluded[coatom].add(x)
 
         for coatom in coatoms:
+            if len(groundset - excluded[coatom]) == coatom.size:
+                cyclic_flats[coatom].update(groundset - excluded[coatom])
+            if is_filled(coatom, cyclic_flats):
+                excluded[coatom].update(groundset - cyclic_flats[coatom])
             for atom in config.lower_covers(coatom):
-                for elem in cyclic_flats[atom]:
-                    try:
-                        cyclic_flats[coatom].add(elem)
-                    except KeyError:
-                        cyclic_flats[coatom] = {elem}
+                excluded[atom].update(excluded[coatom])
+                for x in cyclic_flats[atom]:
+                    cyclic_flats[coatom].add(x)
+
+            if used == cyclic_flats[coatom] | excluded[coatom]:
+                while not is_filled(coatom, cyclic_flats):
+                    new_cf = max(used) + 1
+                    cyclic_flats[coatom].add(new_cf)
+                    used.add(new_cf)
 
         iterations += 1
-        if cyclic_flats == previous:
+        if (cyclic_flats == previous_cyclic_flats
+                and excluded == previous_excluded):
             print("Nothing changed on iteration #{}; terminating".format(
                 iterations))
             show_progress(cyclic_flats)
             return
+    show_progress(cyclic_flats)
     return cyclic_flats
 
 
