@@ -541,8 +541,9 @@ def cyclic_flats_height4(groundset_size, config):
         # Did we make any progress during this iteration?
         if (cyclic_flats == previous_cyclic_flats
                 and excluded == previous_excluded):
-            # TODO: Check possible submatroids (restricted to coatoms) here.
-            # This might be computationally expensive, so only do this when
+            # TODO: See if we can determing something about the
+            # height-3 submatroids with unfilled elements here.
+            # This could be computationally expensive, so only do this when
             # none of the above steps yield any improvement.
             
             # Check again if anything changed
