@@ -432,7 +432,9 @@ def cyclic_flats_height4(groundset_size, config):
     atoms = config.atoms()
     coatoms = config.coatoms()
 
-    # Start by filling a coatom of maximal size
+    # Start by filling a coatom of maximal size.
+    # Use knowledge of the matroid restricted to that coatom
+    # to fill its lower covers.
     largest_coatom = max(coatoms, key=lambda coatom: coatom.size)
     cyclic_flats[largest_coatom] = set(range(largest_coatom.size))
     first_cyclic_flats = cyclic_flats_height3(config.restrict(largest_coatom))
