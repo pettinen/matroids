@@ -435,6 +435,7 @@ def cyclic_flats_height4(groundset_size, config):
     # Start by filling a coatom of maximal size.
     # Use knowledge of the matroid restricted to that coatom
     # to fill its lower covers.
+    # TODO: Perhaps make sure that a height-3 sublattice is chosen here?
     largest_coatom = max(coatoms, key=lambda coatom: coatom.size)
     cyclic_flats[largest_coatom] = set(range(largest_coatom.size))
     first_cyclic_flats = cyclic_flats_height3(config.restrict(largest_coatom))
@@ -445,8 +446,8 @@ def cyclic_flats_height4(groundset_size, config):
         cyclic_flats[atom].update(cf)
         for coatom in config.upper_covers(atom):
             cyclic_flats[coatom].update(cf)
-    
-    # Keep track of cyclic flats chosen without loss of generality
+
+    # Keep track of elements chosen without loss of generality
     used = cyclic_flats[largest_coatom].copy()
 
     iterations = 0
@@ -455,7 +456,7 @@ def cyclic_flats_height4(groundset_size, config):
         previous_excluded = deepcopy(excluded)
 
         for atom in atoms:
-            # For all atoms, check if we can determine cyclic flats
+            # For all atoms, check if we can determine the cyclic flat
             # from the elements already excluded
             if len(groundset - excluded[atom]) == atom.size:
                 cyclic_flats[atom].update(groundset - excluded[atom])
@@ -470,11 +471,11 @@ def cyclic_flats_height4(groundset_size, config):
                               .format(x, atom, cyclic_flats[atom]))
                     cyclic_flats[atom].add(x)
 
-            # TODO: replace this with a simple application of
-            # Lemma 6 (LCF paper).
             # Exclude elements from coatoms if their inclusion would
             # cause an atom (the intersection of its upper covers)
             # to be larger than its size.
+            # TODO: replace this with a simpler application of
+            # Lemma 6 (in the LCF paper).
             if is_filled(atom, cyclic_flats):
                 excluded[atom].update(groundset - cyclic_flats[atom])
                 for coatom in config.upper_covers(atom):
