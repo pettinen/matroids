@@ -407,7 +407,7 @@ def cyclic_flats_height4(groundset_size, config):
         lattice = LatticePoset(config.poset())
         label_str = '({0.size}, {0.rank})\n{1}'
         if show_excluded:
-            label_str += '\n({2})'
+            label_str += '\nex. {2}'
         if index:
             label_str = '{3}\n' + label_str
 
@@ -592,15 +592,16 @@ def cyclic_flats_height4(groundset_size, config):
                         or all(x not in cyclic_flats[vertex] for x in combination)):
                     symmetric_combinations.remove(combination)
 
-        # If all elements have been used, return one element
-        # from the symmetric combinations to the pool of unused elements
+        # Try to add an element from a symmetric combination
+        # to a vertex where it has to be included
+        # (based on already filled CFs and exclusions)
         break_loop = False
         for combination in symmetric_combinations:
             combination = set(combination)
             for vertex in config.elements:
                 if (not is_filled(vertex, cyclic_flats)
-                        and not combination <= cyclic_flats[vertex]
-                        and not combination <= excluded[vertex]):
+                        and (cyclic_flats[vertex] | excluded[vertex]
+                             == groundset - combination)):
                     elem = combination.pop()
                     cyclic_flats[vertex].add(elem)
                     print("(d) Added {0} to {1} ({2.size}, {2.rank}): {3}"
