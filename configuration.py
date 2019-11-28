@@ -308,7 +308,7 @@ def cyclic_flats_height3(config, groundset=None):
     def change_groundset(cyclic_flats):
         if groundset is None:
             return cyclic_flats
-        permutation = dict(enumerate(sorted(groundset)))
+        permutation = dict(enumerate(groundset))
         new_cfs = set()
         for cf in cyclic_flats:
             new_cfs.add(frozenset(permutation[elem] for elem in cf))
@@ -395,13 +395,23 @@ def cyclic_flats_height4(groundset_size, config):
             result &= cyclic_flats[vertex]
         return result
 
-    def show_progress(cyclic_flats, show_excluded=True):
+    # Pretty-print vertex index
+    def idx(vertex):
+        if len(config.elements) > 26:
+            indices = range(1, len(config.elements) + 1)
+        else:
+            indices = string.ascii_uppercase
+        return str(indices[vertex.index])
+
+    def show_progress(cyclic_flats, show_excluded=True, index=True):
         lattice = LatticePoset(config.poset())
         label_str = '({0.size}, {0.rank})\n{1}'
         if show_excluded:
             label_str += '\n({2})'
+        if index:
+            label_str = '{3}\n' + label_str
 
-        def fmt(x):
+        def fmt_elem(x):
             if x < 10:
                 return str(x)
             return ',' + str(x)
@@ -409,8 +419,9 @@ def cyclic_flats_height4(groundset_size, config):
         labels = {
             elem: label_str.format(
                 elem,
-                ''.join(fmt(x+1) for x in cyclic_flats[elem]) or '{ }',
-                ''.join(fmt(x+1) for x in excluded[elem]) or '{ }')
+                ''.join(fmt_elem(x) for x in sorted(cyclic_flats[elem])) or '{ }',
+                ''.join(fmt_elem(x) for x in sorted(excluded[elem])) or '{ }',
+                idx(elem) if index else None)
             for elem in config.elements
         }
         heights = {}
@@ -428,6 +439,48 @@ def cyclic_flats_height4(groundset_size, config):
             vertex_shape='o',
             vertex_size=8000,
         )
+
+    # Returns a 3-tuple of:
+    # - match: whether the unfilled_cfs can be filled to obtain candidate_cfs
+    # - not_everywhere: a set of elements not filled into every unfilled CF
+    # - somewhere: a set of elements filled into some unfilled CF
+    # The last two are meaningful only if match is True.
+    def sublattice_check(unfilled_cfs, candidate_cfs, groundset):
+        # Dumb method: try every choice of filling cfs
+        filled = {}
+        unfilled_choices = {}
+        for vertex, cf in unfilled_cfs.items():
+            missing = vertex.size - len(cf)
+            if missing <= 0:
+                filled[vertex] = cf
+                # Remove already filled CFs from the candidate set.
+                # If a filled CF is not included there, this cannot be a match.
+                if cf in candidate_cfs:
+                    candidate_cfs.remove(cf)
+                else:
+                    return False, set(), set()
+            elif missing > 0:
+                unfilled_choices[vertex] = []
+                for combination in itertools.combinations(groundset - cf, missing):
+                    choice = cf.copy()
+                    choice.update(combination)
+                    unfilled_choices[vertex].append(choice)
+            else:
+                print(vertex.size, cf)
+                raise ValueError("something went horribly wrong (overfilled cyclic flat)")
+
+        # Convert to sorted lists, because sorting sets doesn't work as expected
+        candidate_cfs = sorted(sorted(cf) for cf in candidate_cfs)
+
+        for combination in itertools.product(*unfilled_choices.values()):
+            if sorted(sorted(cf) for cf in combination) == candidate_cfs:
+                not_everywhere = set()
+                somewhere = set()
+                for cf in combination:
+                    not_everywhere |= groundset - cf
+                    somewhere |= cf
+                return True, not_everywhere, somewhere
+        return False, set(), set()
 
     atoms = config.atoms()
     coatoms = config.coatoms()
@@ -452,6 +505,7 @@ def cyclic_flats_height4(groundset_size, config):
 
     iterations = 0
     while not done(cyclic_flats):
+        iterations += 1
         previous_cyclic_flats = deepcopy(cyclic_flats)
         previous_excluded = deepcopy(excluded)
 
@@ -467,9 +521,10 @@ def cyclic_flats_height4(groundset_size, config):
                 if all(x in cyclic_flats[coatom]
                         for coatom in config.upper_covers(atom)):
                     if x not in cyclic_flats[atom]:
-                        print("(a) Adding {0} to ({1.size}, {1.rank}): {2}"
-                              .format(x, atom, cyclic_flats[atom]))
+                        print("(a) Added {0} to {1} ({2.size}, {2.rank}): {3}"
+                              .format(x, idx(atom), atom, cyclic_flats[atom] | {x}))
                     cyclic_flats[atom].add(x)
+                    used.add(x)
 
             # Exclude elements from coatoms if their inclusion would
             # cause an atom (the intersection of its upper covers)
@@ -506,20 +561,24 @@ def cyclic_flats_height4(groundset_size, config):
                 # in the coatom
                 for x in cyclic_flats[atom]:
                     if x not in cyclic_flats[coatom]:
-                        print("(b) Adding {0} to ({1.size}, {1.rank}): {2}"
-                              .format(x, coatom, cyclic_flats[coatom]))
+                        print("(b) Added {0} to {1} ({2.size}, {2.rank}): {3}"
+                              .format(x, idx(coatom), coatom,
+                                      cyclic_flats[coatom] | {x}))
                     cyclic_flats[coatom].add(x)
+                    used.add(x)
 
+        for vertex in config.elements:
             # If all elements chosen are either included or excluded
             # for the vertex, and the cyclic flat is not filled,
             # fill it with as of yet unused elements
-            if used == cyclic_flats[coatom] | excluded[coatom]:
-                while not is_filled(coatom, cyclic_flats):
+            if used == cyclic_flats[vertex] | excluded[vertex]:
+                while not is_filled(vertex, cyclic_flats):
                     x = max(used) + 1
-                    if x not in cyclic_flats[coatom]:
-                        print("(c) Adding {0} to ({1.size}, {1.rank}): {2}"
-                              .format(x, coatom, cyclic_flats[coatom]))
-                    cyclic_flats[coatom].add(x)
+                    if x not in cyclic_flats[vertex]:
+                        print("(c) Added {0} to {1} ({2.size}, {2.rank}): {3}"
+                              .format(x, idx(vertex), vertex,
+                                      cyclic_flats[vertex] | {x}))
+                    cyclic_flats[vertex].add(x)
                     used.add(x)
 
         # Find symmetric sets of elements; that is, 
@@ -532,49 +591,105 @@ def cyclic_flats_height4(groundset_size, config):
                 if not (all(x in cyclic_flats[vertex] for x in combination)
                         or all(x not in cyclic_flats[vertex] for x in combination)):
                     symmetric_combinations.remove(combination)
-        for combination in symmetric_combinations:
-            for x in combination:
-                if x in used:
-                    used.remove(x)
 
-        iterations += 1
+        # If all elements have been used, return one element
+        # from the symmetric combinations to the pool of unused elements
+        break_loop = False
+        for combination in symmetric_combinations:
+            combination = set(combination)
+            for vertex in config.elements:
+                if (not is_filled(vertex, cyclic_flats)
+                        and not combination <= cyclic_flats[vertex]
+                        and not combination <= excluded[vertex]):
+                    elem = combination.pop()
+                    cyclic_flats[vertex].add(elem)
+                    print("(d) Added {0} to {1} ({2.size}, {2.rank}): {3}"
+                          .format(elem, idx(vertex), vertex, cyclic_flats[vertex]))
+                    break_loop = True
+                    break
+            if break_loop:
+                break
+
         # Did we make any progress during this iteration?
+        # The next step could be computationally expensive, so we do it
+        # only if none of the previous steps yielded any improvement.
         if (cyclic_flats == previous_cyclic_flats
                 and excluded == previous_excluded):
-            # TODO: See if we can determing something about the
-            # height-3 submatroids with unfilled elements here.
-            # This could be computationally expensive, so only do this when
-            # none of the above steps yield any improvement.
-            
-            # Check again if anything changed
+            # See if we can determine something about the sublattices
+            # of height <= 3 (where the top element is filled,
+            # but some others are not).
+            for coatom in coatoms:
+                if (is_filled(coatom, cyclic_flats)
+                        and any(not is_filled(atom, cyclic_flats)
+                        for atom in config.lower_covers(coatom))):
+                    # Find elements found in either all or none of
+                    # the unfilled cyclic flats
+                    everywhere = cyclic_flats[coatom].copy()
+                    nowhere = cyclic_flats[coatom].copy()
+
+                    # Check permutations of the sublattice's groundset
+                    # and see if the incomplete CFs can be filled to match
+                    for permutation in itertools.permutations(cyclic_flats[coatom]):
+                        restricted = config.restrict(coatom)
+                        unfilled_cfs = {vertex: cyclic_flats[vertex]
+                                        for vertex in restricted.elements}
+                        candidate_cfs = cyclic_flats_height3(
+                            config.restrict(coatom), groundset=permutation)
+
+                        match, not_everywhere, somewhere = sublattice_check(
+                            unfilled_cfs, candidate_cfs, cyclic_flats[coatom])
+                        if match:
+                            everywhere -= not_everywhere
+                            nowhere -= somewhere
+                            for vertex, cf in unfilled_cfs.items():
+                                if not is_filled(vertex, cyclic_flats):
+                                    cyclic_flats[vertex] |= everywhere
+                                    used |= everywhere
+                                    excluded[vertex] |= nowhere
+
+                    # If there was improvement, restart the while-loop
+                    # to go through the faster steps
+                    if (cyclic_flats != previous_cyclic_flats
+                            or excluded != previous_excluded):
+                        break
+
+            # If nothing has changed, we're stuck
             if (cyclic_flats == previous_cyclic_flats
                     and excluded == previous_excluded):
                 print("Nothing changed on iteration #{}; terminating"
                       .format(iterations))
                 show_progress(cyclic_flats)
-                return
+                return None
 
     # Finished
     show_progress(cyclic_flats)
     return cyclic_flats
 
 
+# Tests
+if __name__ == '__main__':
+    matrix11_4_5 = matrix(GF(2), [
+        [1, 0, 0, 0, 1, 0, 0, 1, 1, 1, 1],
+        [0, 1, 0, 0, 1, 1, 1, 0, 0, 1, 1],
+        [0, 0, 1, 0, 1, 0, 1, 1, 0, 1, 0],
+        [0, 0, 0, 1, 0, 1, 1, 1, 1, 1, 1],
+    ])
+    matroid11_4_5 = BinaryMatroid2(matrix11_4_5)
+    h4 = matroid11_4_5.restrict({0,2,4,5,6,7,8,9,10}) # (9,4,3)-matroid
+    #h4 = matroid11_4_5.restrict({0,1,3,4,5,6,7,8,9,10}) # (10,4,4)-matroid
+    print(h4)
+    config = h4.cf_lattice_config()
 
-matrix11_4_5 = matrix(GF(2), [
-    [1, 0, 0, 0, 1, 0, 0, 1, 1, 1, 1],
-    [0, 1, 0, 0, 1, 1, 1, 0, 0, 1, 1],
-    [0, 0, 1, 0, 1, 0, 1, 1, 0, 1, 0],
-    [0, 0, 0, 1, 0, 1, 1, 1, 1, 1, 1],
-])
-matroid11_4_5 = BinaryMatroid2(matrix11_4_5)
-h4 = matroid11_4_5.restrict({0,2,4,5,6,7,8,9,10})
-#h4 = matroid11_4_5.restrict({0,1,3,4,5,6,7,8,9,10})
-config = h4.cf_lattice_config()
-cfs = sorted(cyclic_flats_height4(len(h4), h4.cf_lattice_config()).values())
-for permutation in itertools.permutations(h4.groundset()):
-    permuted = BinaryMatroid2.from_matroid(h4, groundset=permutation)
-    if cfs == sorted(permuted.cyclic_flats()):
-        print("yay")
-        break
-else:
-    print("nope")
+    # Check correctness (up to isomorphism)
+    try:
+        cfs = sorted(sorted(cf) for cf in
+            cyclic_flats_height4(len(h4), h4.cf_lattice_config()).values())
+        for permutation in itertools.permutations(h4.groundset()):
+            permuted = BinaryMatroid2.from_matroid(h4, groundset=permutation)
+            if cfs == sorted(sorted(cf) for cf in permuted.cyclic_flats()):
+                print("yay")
+                break
+        else:
+            print("nope")
+    except AttributeError:
+        print("search failed")
