@@ -376,14 +376,12 @@ def cyclic_flats_height4(groundset_size, config):
     cyclic_flats = {elem: set() for elem in config.elements}
     cyclic_flats[config.top()].update(groundset)
     excluded = {elem: set() for elem in config.elements}
+    excluded[config.bottom()].update(groundset)
 
     def is_filled(vertex, cyclic_flats):
+        if len(cyclic_flats[vertex]) > vertex.size:
+            raise ValueError("overfilled cyclic flat")
         return len(cyclic_flats[vertex]) == vertex.size
-
-    # Check if cyclic flats for all vertices have been filled
-    def done(cyclic_flats):
-        return all(is_filled(vertex, cyclic_flats)
-                   for vertex in config.elements)
 
     # Find the intersection of discovered cyclic flats of given vertices
     def intersect(cyclic_flats, vertices):
@@ -439,6 +437,11 @@ def cyclic_flats_height4(groundset_size, config):
             vertex_shape='o',
             vertex_size=8000,
         )
+
+    # Check if cyclic flats for all vertices have been filled
+    def done(cyclic_flats):
+        return all(is_filled(vertex, cyclic_flats)
+                   for vertex in config.elements)
 
     # Returns a 3-tuple of:
     # - match: whether the unfilled_cfs can be filled to obtain candidate_cfs
@@ -518,8 +521,9 @@ def cyclic_flats_height4(groundset_size, config):
             # For every atom, add elements that are present
             # in all of its upper covers
             for x in groundset - excluded[atom]:
-                if all(x in cyclic_flats[coatom]
-                        for coatom in config.upper_covers(atom)):
+                if (len(config.upper_covers(atom)) > 1
+                        and all(x in cyclic_flats[coatom]
+                        for coatom in config.upper_covers(atom))):
                     if x not in cyclic_flats[atom]:
                         print("(a) Added {0} to {1} ({2.size}, {2.rank}): {3}"
                               .format(x, idx(atom), atom, cyclic_flats[atom] | {x}))
@@ -554,8 +558,8 @@ def cyclic_flats_height4(groundset_size, config):
                 excluded[coatom].update(groundset - cyclic_flats[coatom])
 
             for atom in config.lower_covers(coatom):
-                # Exclusions in coatoms must also be excluded in their
-                # lower covers
+                # Exclusions in coatoms must also be excluded
+                # their lower covers
                 excluded[atom].update(excluded[coatom])
                 # Include all elements from a coatom's lower covers
                 # in the coatom
@@ -592,9 +596,8 @@ def cyclic_flats_height4(groundset_size, config):
                         or all(x not in cyclic_flats[vertex] for x in combination)):
                     symmetric_combinations.remove(combination)
 
-        # Try to add an element from a symmetric combination
-        # to a vertex where it has to be included
-        # (based on already filled CFs and exclusions)
+        # Try to add an element from a symmetric combination to a vertex
+        # where it has to be (due to everything else being excluded)
         break_loop = False
         for combination in symmetric_combinations:
             combination = set(combination)
@@ -677,7 +680,9 @@ if __name__ == '__main__':
     ])
     matroid11_4_5 = BinaryMatroid2(matrix11_4_5)
     h4 = matroid11_4_5.restrict({0,2,4,5,6,7,8,9,10}) # (9,4,3)-matroid
-    #h4 = matroid11_4_5.restrict({0,1,3,4,5,6,7,8,9,10}) # (10,4,4)-matroid
+    h4 = matroid11_4_5.restrict({0,1,3,4,5,6,7,8,9,10}) # (10,4,4)-matroid
+    h4 = matroid11_4_5.restrict({0,1,3,4,5,6,7,8,9,10}).restrict(
+        {0,2,3,4,5,6,7}) # (7,4,2)-matroid
     print(h4)
     config = h4.cf_lattice_config()
 
