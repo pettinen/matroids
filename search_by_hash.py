@@ -8,7 +8,9 @@ from sage.all import *
 from binary_matroid import BinaryMatroid2
 
 
-def search(rows, cols, strategy='exhaustive', print_progress=True):
+# Search for two non-isomorphic matroids with the same
+# configurations of lattices of cyclic flats.
+def find_collision(rows, cols, strategy='exhaustive', print_progress=True):
     global n
     n = 0
     results = {}
@@ -20,7 +22,7 @@ def search(rows, cols, strategy='exhaustive', print_progress=True):
             print('\r{}'.format(n), end='', file=sys.stderr)
 
         matroid = BinaryMatroid2(matrix=matrix_)
-        # Only find simple matroids with no isthmuses
+        # Only consider simple matroids with no isthmuses
         if not matroid.is_simple() or matroid.coloops():
             return
 
@@ -63,9 +65,92 @@ def search(rows, cols, strategy='exhaustive', print_progress=True):
         config.show(title="{}\n{}".format(*results[config]))
 
 
+# Find a matroid with a given LCF configuration.
+def find_matroid_by_config(rows, cols, search_config, print_progress=True):
+    global n
+    n = 0
+
+    def iteration(matrix_):
+        global n
+        n += 1
+        if print_progress:
+            print('\r{}'.format(n), end='', file=sys.stderr)
+
+        matroid = BinaryMatroid2(matrix=matrix_)
+        # Only consider simple matroids with no isthmuses
+        if not matroid.is_simple() or matroid.coloops():
+            return
+
+        candidate_config = matroid.cf_lattice_config()
+        if candidate_config == search_config:
+            print("\nFound:")
+            print(matroid)
+            print(matrix_)
+            print('--------')
+            return matroid
+
+    start = time.time()
+    print("Searching {}x{} matrices exhaustively...".format(ROWS, COLS),
+        file=sys.stderr)
+    for matrix_ in MatrixSpace(GF(2), rows, cols):
+        if iteration(matrix_) is not None:
+            break
+    end = time.time()
+    if print_progress:
+        print()
+    print("Completed in {} seconds".format(round(end - start, 2)),
+        file=sys.stderr)
+
+
+# Find a matroid with given cyclic_flats.
+def find_matroid_by_cf(rows, cols, search_cf, print_progress=True):
+    global n
+    n = 0
+
+    def iteration(matrix_):
+        global n
+        n += 1
+        if print_progress:
+            print('\r{}'.format(n), end='', file=sys.stderr)
+
+        matroid = BinaryMatroid2(matrix=matrix_)
+        # Only consider simple matroids with no isthmuses
+        #if not matroid.is_simple() or matroid.coloops():
+            #return
+
+        candidate_cf = matroid.cyclic_flats()
+        if candidate_cf == search_cf:
+            print("\nFound:")
+            print(matroid)
+            print(matrix_)
+            print('--------')
+            return matroid
+
+    start = time.time()
+    print("Searching {}x{} matrices exhaustively...".format(ROWS, COLS),
+        file=sys.stderr)
+    for matrix_ in MatrixSpace(GF(2), rows, cols):
+        if iteration(matrix_) is not None:
+            break
+    end = time.time()
+    if print_progress:
+        print()
+    print("Completed in {} seconds".format(round(end - start, 2)),
+        file=sys.stderr)
+
+
 if __name__ == '__main__':
-    ROWS = 5
-    COLS = 5
+    search_cf = {
+        frozenset({0,1,2,3,4,5,6}),
+        frozenset({0,1,2,3,4}),
+        frozenset({0,1,5,6}),
+        frozenset({0,2,5,6}),
+        frozenset({0,2,3}),
+        frozenset({1,2,4}),
+        frozenset({}),
+    }
+    ROWS = 4
+    COLS = 7
     STRATEGY = 'exhaustive'
     PRINT_PROGRESS = True
-    search(ROWS, COLS, STRATEGY, PRINT_PROGRESS)
+    find_matroid_by_cf(ROWS, COLS, search_cf, PRINT_PROGRESS)
